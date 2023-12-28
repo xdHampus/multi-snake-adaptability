@@ -19,7 +19,7 @@ model = PPO(
     batch_size=250,
 )
 
-model.learn(total_timesteps=1_000_000)
+model.learn(total_timesteps=10_000_000)
 model.save("pz_snake_v1_0")
 
 #from pettingzoo.test import parallel_api_test
