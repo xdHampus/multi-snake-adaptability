@@ -1,0 +1,5 @@
+gymnasium==0.29.1
+stable-baselines3==2.2.1
+numpy
+pettingzoo==1.24.2
+supersuit==3.9.1
