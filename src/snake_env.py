@@ -248,8 +248,8 @@ class parallel_env(ParallelEnv):
             elif agent_action == RIGHT and (head_position + 1) % MAP_WIDTH != 0:
                 next_position = head_position + 1
             else:
-                # Terminate the snake if the action hits the borders
-                print(f'{agent} hit the border wall')
+                if DEBUG_PRINT:
+                    print(f'{agent} hit the border wall')
                 next_position = None
 
             # check if the next position is valid
