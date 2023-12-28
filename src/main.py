@@ -21,7 +21,8 @@ model = PPO(
 
 model.learn(total_timesteps=10_000_000)
 model.save("pz_snake_v1_0")
-
+print("model saved.")
+env.close()
 #from pettingzoo.test import parallel_api_test
 #parallel_api_test(env, num_cycles=1000)
 
