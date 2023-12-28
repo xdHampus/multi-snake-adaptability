@@ -235,19 +235,25 @@ class parallel_env(ParallelEnv):
             # get the current head position
             head_position = self.state["agents"][agent][-1]
 
-            # get the next position based on the action
+            # get the next position based on the action, however if the action causes the snake to go into the borders then terminate the snake
+
             next_position = None
-            if actions[agent] == UP:
+            agent_action = actions[agent]
+            if agent_action == UP and head_position >= MAP_WIDTH:
                 next_position = head_position - MAP_WIDTH
-            elif actions[agent] == DOWN:
+            elif agent_action == DOWN and head_position + MAP_WIDTH < MAP_WIDTH * MAP_HEIGHT:
                 next_position = head_position + MAP_WIDTH
-            elif actions[agent] == LEFT:
+            elif agent_action == LEFT and head_position % MAP_WIDTH != 0:
                 next_position = head_position - 1
-            elif actions[agent] == RIGHT:
+            elif agent_action == RIGHT and (head_position + 1) % MAP_WIDTH != 0:
                 next_position = head_position + 1
+            else:
+                # Terminate the snake if the action hits the borders
+                print(f'{agent} hit the border wall')
+                next_position = None
 
             # check if the next position is valid
-            if next_position < 0 or next_position >= MAP_PRODUCT:
+            if next_position is None or next_position < 0 or next_position >= MAP_PRODUCT:
                 if DEBUG_PRINT:
                     print(f'{agent} hit the border wall')
                 self.terminations[agent] = True
