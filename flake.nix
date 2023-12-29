@@ -27,6 +27,7 @@
             python310Packages.requests
             python310Packages.matplotlib
             python310Packages.pytorch
+            python310Packages.tensorflow
             libstdcxx5
           ];
           shellHook = ''

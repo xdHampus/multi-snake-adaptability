@@ -2,26 +2,28 @@ import snake_env
 from stable_baselines3 import PPO
 from stable_baselines3.ppo import MlpPolicy
 import supersuit as ss
-import time
 
-env = snake_env.parallel_env(render_mode="human", map_width=16, map_height=16, agent_count=2, food_chance=0.5, debug_print=True)
+
+env = snake_env.parallel_env(render_mode="human", map_width=16, map_height=16, agent_count=2, snake_start_len=2, food_gen_max=5, food_total_max=25, debug_print=False)
 observations, infos = env.reset()
 env = ss.black_death_v3(env)
 env = ss.pettingzoo_env_to_vec_env_v1(env)
-env = ss.concat_vec_envs_v1(env, num_vec_envs=1, num_cpus=4, base_class="stable_baselines3")
+env = ss.concat_vec_envs_v1(env, num_vec_envs=16, num_cpus=8, base_class="stable_baselines3")
 
-print("loading model")
-model = PPO.load("pz_snake_v1_1")
+model = PPO(
+    MlpPolicy,
+    env,    
+    verbose=3,
+    n_steps=2048,
+    batch_size=128,
+)
 
-print("running model")
-obs = env.reset()
-while True:
-    time.sleep(0.5)
-    action, _states = model.predict(obs)
-    #print(action)
-    obs, rewards, dones, info = env.step(action)
-    env.render()
-
+model.learn(total_timesteps=10_000_000)
+model.save("pz_snake_v1_1")
+print("model saved.")
+env.close()
+#from pettingzoo.test import parallel_api_test
+#parallel_api_test(env, num_cycles=1000)
 
 
 
