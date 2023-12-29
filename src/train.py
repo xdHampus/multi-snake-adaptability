@@ -53,7 +53,7 @@ def train(training_goal = 100_000):
         eval.evaluate(model_name, env, 1000)
 
 
-train(10_000_000)
+train(2_000_000)
 env.close()
 
 
