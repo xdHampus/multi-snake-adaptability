@@ -70,18 +70,14 @@ class parallel_env(ParallelEnv):
                 debug_print=False,
                 debug_aop=False,
                 render_map=True,
+                food_rewards=True,
+                food_reward=15,
+                death_rewards=True,
+                death_reward=-1,
+                move_rewards=False,
+                move_rewards_length=False,
+                move_reward=1,
                 render_snake_body=True):
-        """
-        The init method takes in environment arguments and should define the following attributes:
-        - possible_agents
-        - render_mode
-
-        Note: as of v1.18.1, the action_spaces and observation_spaces attributes are deprecated.
-        Spaces should be defined in the action_space() and observation_space() methods.
-        If these methods are not overridden, spaces will be inferred from self.observation_spaces/action_spaces, raising a warning.
-
-        These attributes should not be changed after initialization.
-        """
         self.num_iters = num_iters
         self.map_width = map_width
         self.map_height = map_height
@@ -97,6 +93,14 @@ class parallel_env(ParallelEnv):
         self.render_snake_body = render_snake_body
         self.render_mode = render_mode
         self.snake_start_len = snake_start_len
+        self.food_rewards = food_rewards
+        self.food_reward = food_reward
+        self.death_rewards = death_rewards
+        self.death_reward = death_reward
+        self.move_rewards = move_rewards
+        self.move_rewards_length = move_rewards_length
+        self.move_reward = move_reward
+
 
         if self.debug_aop:
             print("CALLED: parallel_env()")
@@ -328,7 +332,8 @@ class parallel_env(ParallelEnv):
             else:
                 tail_position = self.snake_bodies[agent].popleft()
                 self.state["map"][tail_position] = EMPTY_CELL
-
+                if self.move_rewards:
+                    rewards[agent] = len(self.snake_bodies[agent]) if self.move_rewards_length else self.move
 
             # move the snake
             self.snake_bodies[agent].append(next_position)
