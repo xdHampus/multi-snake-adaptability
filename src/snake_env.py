@@ -318,8 +318,8 @@ class parallel_env(ParallelEnv):
                     self.state["map"][position] = EMPTY_CELL
                 # clear snake body
                 self.snake_bodies[agent] = deque()
-                # set rewards to -1
-                rewards[agent] = -1
+                # set rewards to death reward
+                rewards[agent] = self.death_reward
 
                 continue
 
@@ -328,7 +328,7 @@ class parallel_env(ParallelEnv):
                 if self.debug_print:
                     print(f'{agent} ate food') 
                 self.state["map"][next_position] = EMPTY_CELL
-                rewards[agent] = 15
+                rewards[agent] = self.food_reward if self.food_rewards else 0
             else:
                 tail_position = self.snake_bodies[agent].popleft()
                 self.state["map"][tail_position] = EMPTY_CELL

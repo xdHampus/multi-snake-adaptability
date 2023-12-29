@@ -11,7 +11,7 @@ now_str = now.strftime("%Y-%m-%d_%H-%M-%S")
 training_version = "v1_1"
 
 
-env = snake_env.parallel_env(render_mode="disabled", map_width=16, map_height=16, agent_count=2, snake_start_len=2, food_gen_max=1, food_total_max=5, move_rewards=True, move_rewards_length=True, food_reward=30, death_reward=-50, debug_print=False)
+env = snake_env.parallel_env(render_mode="disabled", map_width=16, map_height=16, agent_count=2, snake_start_len=2, food_gen_max=1, food_total_max=5, move_rewards=True, move_rewards_length=True, food_reward=200, death_reward=-50, debug_print=False)
 observations, infos = env.reset()
 env = ss.black_death_v3(env)
 env = ss.pettingzoo_env_to_vec_env_v1(env)
@@ -53,7 +53,7 @@ def train(training_goal = 100_000):
         eval.evaluate(model_name, env, 1000)
 
 
-train(2_000_000)
+train(10_000_000)
 env.close()
 
 
