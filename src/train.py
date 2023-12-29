@@ -2,13 +2,19 @@ import snake_env
 from stable_baselines3 import PPO
 from stable_baselines3.ppo import MlpPolicy
 import supersuit as ss
+import datetime
 
 
-env = snake_env.parallel_env(render_mode="human", map_width=16, map_height=16, agent_count=2, snake_start_len=2, food_gen_max=5, food_total_max=25, debug_print=False)
+env = snake_env.parallel_env(render_mode="human", map_width=16, map_height=16, agent_count=2, snake_start_len=2, food_gen_max=1, food_total_max=5, debug_print=False)
 observations, infos = env.reset()
 env = ss.black_death_v3(env)
 env = ss.pettingzoo_env_to_vec_env_v1(env)
 env = ss.concat_vec_envs_v1(env, num_vec_envs=16, num_cpus=8, base_class="stable_baselines3")
+
+# get current timedate as string
+now = datetime.datetime.now()
+now_str = now.strftime("%Y-%m-%d_%H-%M-%S")
+
 
 model = PPO(
     MlpPolicy,
@@ -18,8 +24,24 @@ model = PPO(
     batch_size=128,
 )
 
+# 10k steps
+model.learn(total_timesteps=10_000)
+model.save("pz_snake_v1_1_" + now_str + "_10k")
+print("10k model saved.")
+
+# 100k steps
+model.learn(total_timesteps=100_000)
+model.save("pz_snake_v1_1_" + now_str + "_100k")
+print("100k model saved.")
+
+# 1M steps
+model.learn(total_timesteps=1_000_000)
+model.save("pz_snake_v1_1_" + now_str + "_1M")
+print("1M model saved.")
+
+# 10M steps
 model.learn(total_timesteps=10_000_000)
-model.save("pz_snake_v1_1")
+model.save("pz_snake_v1_1_" + now_str + "_10M")
 print("model saved.")
 env.close()
 #from pettingzoo.test import parallel_api_test

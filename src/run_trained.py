@@ -4,7 +4,7 @@ from stable_baselines3.ppo import MlpPolicy
 import supersuit as ss
 import time
 
-env = snake_env.parallel_env(render_mode="human", map_width=16, map_height=16, agent_count=2, food_chance=0.5, debug_print=True)
+env = snake_env.parallel_env(render_mode="human", map_width=16, map_height=16, agent_count=2, snake_start_len=2, food_gen_max=5, food_total_max=5, debug_print=False)
 observations, infos = env.reset()
 env = ss.black_death_v3(env)
 env = ss.pettingzoo_env_to_vec_env_v1(env)
@@ -16,7 +16,7 @@ model = PPO.load("pz_snake_v1_1")
 print("running model")
 obs = env.reset()
 while True:
-    time.sleep(0.5)
+    time.sleep(0.75)
     action, _states = model.predict(obs)
     #print(action)
     obs, rewards, dones, info = env.step(action)
