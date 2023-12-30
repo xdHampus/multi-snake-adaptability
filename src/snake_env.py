@@ -35,12 +35,13 @@ def create_env(render_mode="human", num_vec_envs=1, num_cpus=4):
         snake_start_len=2, 
         food_gen_max=1, 
         food_total_max=5, 
-        move_rewards=False, 
-        move_rewards_length=False, 
+        move_rewards=True, 
+        move_rewards_length=False,
+        move_reward=-0.3, 
         food_rewards=True, 
         food_reward=2, 
         food_rewards_length_multiplier=True, 
-        death_reward=-50, 
+        death_reward=-24, 
         debug_print=False)
     observations, infos = env.reset()
     env = ss.black_death_v3(env)

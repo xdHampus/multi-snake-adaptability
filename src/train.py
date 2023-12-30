@@ -46,14 +46,14 @@ def train(training_goal = 100_000, n_steps = 2048, batch_size = 128, num_vec_env
             break
     env.close()
 
-    env = create_env(render_mode="disabled", num_vec_envs=1, num_cpus=4)
+    env = snake_env.create_env(render_mode="disabled", num_vec_envs=1, num_cpus=4)
     print()
     for model_name in trained_models:
         print(f'evaluating {model_name}')
         eval.evaluate(model_name, env, 5000)
         print()
     
-train(training_goal=100_000_000)
+train(training_goal=10_000_000)
 
 
 
