@@ -29,8 +29,8 @@ CELL_TYPES_STR = ["EMPTY_CELL", "SNAKE_CELL", "FOOD", "WALL"]
 def create_env(render_mode="human", num_vec_envs=1, num_cpus=4, debug_print=False):
     env = parallel_env(
         render_mode=render_mode, 
-        map_width=16, 
-        map_height=16, 
+        map_width=11, 
+        map_height=11, 
         agent_count=2, 
         snake_start_len=2, 
         food_gen_max=1, 
@@ -39,9 +39,9 @@ def create_env(render_mode="human", num_vec_envs=1, num_cpus=4, debug_print=Fals
         move_rewards_length=False,
         move_reward=-0.3, 
         food_rewards=True, 
-        food_reward=10, 
+        food_reward=25, 
         food_rewards_length_multiplier=False, 
-        death_reward=-24, 
+        death_reward=-29, 
         debug_print=debug_print)
     observations, infos = env.reset()
     env = ss.black_death_v3(env)

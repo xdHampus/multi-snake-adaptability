@@ -8,7 +8,7 @@ env = snake_env.create_env(debug_print=True)
 
 
 print("loading model")
-model = PPO.load("pz_snake_v1_1_2023-12-30_14-32-43_1M")
+model = PPO.load("pz_snake_v1_1_2023-12-30_15-05-12_1M")
 
 print("running model")
 obs = env.reset()
