@@ -8,6 +8,7 @@ from pettingzoo import ParallelEnv
 from pettingzoo.utils import parallel_to_aec, wrappers
 from collections import deque
 import numpy as np
+import supersuit as ss
 
 UP = 0
 DOWN = 1
@@ -22,6 +23,30 @@ FOOD = 2
 WALL = 3
 CELL_TYPES = [EMPTY_CELL, SNAKE_CELL, FOOD, WALL]
 CELL_TYPES_STR = ["EMPTY_CELL", "SNAKE_CELL", "FOOD", "WALL"]
+
+
+
+def create_env(render_mode="human", num_vec_envs=1, num_cpus=4):
+    env = parallel_env(
+        render_mode=render_mode, 
+        map_width=16, 
+        map_height=16, 
+        agent_count=2, 
+        snake_start_len=2, 
+        food_gen_max=1, 
+        food_total_max=5, 
+        move_rewards=False, 
+        move_rewards_length=False, 
+        food_rewards=True, 
+        food_reward=2, 
+        food_rewards_length_multiplier=True, 
+        death_reward=-50, 
+        debug_print=False)
+    observations, infos = env.reset()
+    env = ss.black_death_v3(env)
+    env = ss.pettingzoo_env_to_vec_env_v1(env)
+    env = ss.concat_vec_envs_v1(env, num_vec_envs=num_vec_envs, num_cpus=num_cpus, base_class="stable_baselines3")
+    return env
 
 
 
@@ -71,6 +96,7 @@ class parallel_env(ParallelEnv):
                 debug_aop=False,
                 render_map=True,
                 food_rewards=True,
+                food_rewards_length_multiplier=False,
                 food_reward=15,
                 death_rewards=True,
                 death_reward=-1,
@@ -94,12 +120,14 @@ class parallel_env(ParallelEnv):
         self.render_mode = render_mode
         self.snake_start_len = snake_start_len
         self.food_rewards = food_rewards
+        self.food_rewards_length_multiplier = food_rewards_length_multiplier
         self.food_reward = food_reward
         self.death_rewards = death_rewards
         self.death_reward = death_reward
         self.move_rewards = move_rewards
         self.move_rewards_length = move_rewards_length
         self.move_reward = move_reward
+        
 
 
         if self.debug_aop:
@@ -328,12 +356,13 @@ class parallel_env(ParallelEnv):
                 if self.debug_print:
                     print(f'{agent} ate food') 
                 self.state["map"][next_position] = EMPTY_CELL
-                rewards[agent] = self.food_reward if self.food_rewards else 0
+                if self.food_rewards:
+                    rewards[agent] = (len(self.snake_bodies[agent]) * self.food_reward) if self.food_rewards_length_multiplier else self.food_reward
             else:
                 tail_position = self.snake_bodies[agent].popleft()
                 self.state["map"][tail_position] = EMPTY_CELL
                 if self.move_rewards:
-                    rewards[agent] = len(self.snake_bodies[agent]) if self.move_rewards_length else self.move
+                    rewards[agent] = len(self.snake_bodies[agent]) if self.move_rewards_length else self.move_reward
 
             # move the snake
             self.snake_bodies[agent].append(next_position)

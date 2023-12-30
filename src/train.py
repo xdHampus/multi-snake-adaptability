@@ -11,25 +11,22 @@ now_str = now.strftime("%Y-%m-%d_%H-%M-%S")
 training_version = "v1_1"
 
 
-env = snake_env.parallel_env(render_mode="disabled", map_width=16, map_height=16, agent_count=2, snake_start_len=2, food_gen_max=1, food_total_max=5, move_rewards=True, move_rewards_length=True, food_reward=200, death_reward=-50, debug_print=False)
-observations, infos = env.reset()
-env = ss.black_death_v3(env)
-env = ss.pettingzoo_env_to_vec_env_v1(env)
-env = ss.concat_vec_envs_v1(env, num_vec_envs=1, num_cpus=4, base_class="stable_baselines3")
 
 
+def train(training_goal = 100_000, n_steps = 2048, batch_size = 128, num_vec_envs=1, num_cpus=4):
 
-
-def train(training_goal = 100_000):
-    training_jumps = [10_000, 100_000, 200_000, 500_000, 1_000_000, 2_000_000, 5_000_000, 10_000_000, 20_000_000, 50_000_000, 100_000_000]
+    training_jumps = [100_000, 1_000_000, 2_000_000, 5_000_000, 10_000_000, 20_000_000, 30_000_000, 40_000_000, 50_000_000, 60_000_000, 70_000_000, 80_000_000, 90_000_000, 100_000_000]
     trained_models = []
-    print(f'training {training_version} to {training_goal} steps')
+    print(f'training {training_version} to {human_format(training_goal)} steps')
+    print('n_steps', n_steps, 'batch_size', batch_size)
+
+    env = snake_env.create_env(render_mode="disabled")
     model = PPO(
         MlpPolicy,
         env,    
         verbose=3,
-        n_steps=2048,
-        batch_size=128,
+        n_steps=n_steps,
+        batch_size=batch_size,
     )
 
     trained_so_far = 0
@@ -47,14 +44,16 @@ def train(training_goal = 100_000):
         else:
             print(f'skipping {human_format(jump)} steps')
             break
-    
+    env.close()
+
+    env = create_env(render_mode="disabled", num_vec_envs=1, num_cpus=4)
+    print()
     for model_name in trained_models:
         print(f'evaluating {model_name}')
-        eval.evaluate(model_name, env, 1000)
-
-
-train(2_000_000)
-env.close()
+        eval.evaluate(model_name, env, 5000)
+        print()
+    
+train(training_goal=100_000_000)
 
 
 
