@@ -23,7 +23,8 @@ FOOD = 2
 WALL = 3
 CELL_TYPES = [EMPTY_CELL, SNAKE_CELL, FOOD, WALL]
 CELL_TYPES_STR = ["EMPTY_CELL", "SNAKE_CELL", "FOOD", "WALL"]
-
+MAX_LIMIT_WIDTH = 64
+MAX_LIMIT_HEIGHT = 64
 
 
 def create_env(render_mode="human", num_vec_envs=1, num_cpus=4, debug_print=False, map_width=5, map_height=5, seed=None):
@@ -79,6 +80,10 @@ def raw_env(render_mode=None):
     env = parallel_to_aec(env)
     return env
 
+def dist_to_edge(width, height, point):
+    x = point % width
+    y = point // width
+    return min(x, y, width - x - 1, height - y - 1) + 1
 
 class parallel_env(ParallelEnv):
     metadata = {"render_modes": ["human", "disabled"], "name": "rps_v2"}
@@ -162,9 +167,18 @@ class parallel_env(ParallelEnv):
             print("CALLED: observation_space()")
         #return Dict({
         #    "map": Box(low=0, high=5, shape=(map_product,), dtype=int),
-        #    "agent": Box(low=0, high=map_product, shape=(map_product,), dtype=int)
+        #  
+        #   "agent": Box(low=0, high=map_product, shape=(map_product,), dtype=int)
         #})
-        return Box(low=0, high=self.map_product+5, shape=(self.map_product*2,), dtype=int)
+
+        # food pos closest to snake head
+        # data[0] = 1 if pos is snake
+        # data[1] = 1 if pos is food
+        # data[2] = distance to its closest body part
+        # data[3] = distance to its closest food
+        # data[4] = distance to its closest wall or edge map
+        return Box(low=0, high=MAX_LIMIT_HEIGHT*MAX_LIMIT_HEIGHT, shape=(16,5), dtype=int)
+        #return Box(low=0, high=self.map_product+5, shape=(self.map_product*2,), dtype=int)
 
     @functools.lru_cache(maxsize=None)
     def action_space(self, agent):
@@ -280,19 +294,102 @@ class parallel_env(ParallelEnv):
         self.num_moves = 0
         self.state = {
             "map": self.map,
-            "agents": self.snake_bodies
+            "agents": self.snake_bodies,
+            "food_pos": [],
+            "walls_pos": [],
         }
 
         #observations = {agent: {
         #    "map": self.state["map"],
         #    "agent":  list(self.state["agents"][agent]) + [0] * (map_product - len(self.state["agents"][agent]))
         #} for agent in self.agents}
-        observations = {agent: self.map + self.map for agent in self.agents}
+
+
+        observations = {agent: self.get_observation(agent) for agent in self.agents}
         infos = {agent: {
             "snake_size": len(self.snake_bodies[agent])
         } for agent in self.agents}
 
         return observations, infos
+    
+    def convert_point_to_xy(self, point):
+        return point % self.map_width, point // self.map_width
+
+    def get_observation(self, agent):
+        if self.debug_aop:
+            print("CALLED: get_observation()")
+        """
+        Returns the observation for agent
+        """
+
+        head_pos = convert_point_to_xy(self.state["agents"][agent][-1])
+
+        check_pos = [
+            # right left 
+            head_pos - 1,
+            head_pos + 1,
+            head_pos - 2,
+            head_pos + 2,
+            # up down
+            head_pos - self.map_width,
+            head_pos + self.map_width,
+            head_pos - self.map_width * 2,
+            head_pos + self.map_width * 2,
+            # corners
+            head_pos - self.map_width - 1,
+            head_pos - self.map_width + 1,
+            head_pos + self.map_width - 1,
+            head_pos + self.map_width + 1,
+            # corners 2
+            head_pos - 2 * self.map_width - 2,
+            head_pos - 2 * self.map_width + 2,
+            head_pos + 2 * self.map_width - 2,
+            head_pos + 2 * self.map_width + 2,
+        ]
+
+
+
+        # Init array of of 0s 5 long in arrays 16 long
+        checked_pos = np.zeros((16, 5), dtype=int)
+
+
+        cur_body = list(self.state["agents"][agent])
+
+        # iterate over and fill in checked_pos using pos from check_pos
+        print(check_pos)
+
+        for pos, i in check_pos:
+            # if pos is snake set data[0] to 1
+            if pos in cur_body:
+                checked_pos[i][0] = 1
+            
+            # if pos is food set data[1] to 1
+            if self.state["map"][pos] == FOOD:
+                checked_pos[i][1] = 1
+
+            # distance to its closest body part
+            checked_pos[i][2] = min([self.distance(pos, body_part) for body_part in cur_body])
+
+            # distance to its closest food
+            checked_pos[i][3] = min([self.distance(pos, food_part) for food_part in self.state["food_pos"]])
+
+            # distance to its closest wall or distance to being outside map
+            if pos < 0 or pos >= self.map_product:
+                checked_pos[i][4] = 0
+            else:
+                edge_dist = dist_to_edge(self.map_width, self.map_height, pos)
+                wall_dist = min([self.distance(pos, wall_part) for wall_part in self.state["walls_pos"]])
+                min_obstacle_dist = min(edge_dist, wall_dist)
+                # calculate dist to snake body but do not calculate for own body, only other agents - if hostiles len greater than 0 then this should be set to MAP_PRODUCT using ternary. Finally min this with min_obstacle_dist
+                hostiles = [agent for agent in self.agents if agent != agent]
+                hostiles_min_dist = min([self.distance(pos, body_part) for body_part in self.state["agents"][hostiles]]) if len(hostiles) > 0 else self.map_product
+                checked_pos[i][4] = min(min_obstacle_dist, hostiles_min_dist)
+
+
+        return self.state["agents"][agent]
+    
+    def distance(self, pos1, pos2):
+        return abs(pos1 % self.map_width - pos2 % self.map_width) + abs(pos1 // self.map_width - pos2 // self.map_width)
     
     def kill_agent(self, agent, rewards, death_reward=None):
         self.terminations[agent] = True
@@ -377,6 +474,7 @@ class parallel_env(ParallelEnv):
                 self.state["map"][next_position] = EMPTY_CELL
                 if self.food_rewards:
                     rewards[agent] = (len(self.snake_bodies[agent]) * self.food_reward) if self.food_rewards_length_multiplier else self.food_reward
+                    self.state["food_pos"].remove(next_position)
                 # Idler reset
                 if self.kill_idler:
                     self.idler[agent] = 0
@@ -403,6 +501,7 @@ class parallel_env(ParallelEnv):
                 food_position = random.randint(0, self.map_product-1)
                 if self.state["map"][food_position] == EMPTY_CELL:
                     self.state["map"][food_position] = FOOD
+                    self.state["food_pos"].append(food_position)
         
         # if Y% chance if there is less than Z walls on the map add a new one else find an existing wall, set it to empty and place a wall elsewhere - do this X times
         if self.walls_enabled:
@@ -413,15 +512,18 @@ class parallel_env(ParallelEnv):
                     wall_position = random.randint(0, self.map_product-1)
                     if self.state["map"][wall_position] == EMPTY_CELL:
                         self.state["map"][wall_position] = WALL
+                        self.state["walls_pos"].append(wall_position)
             elif wall_chance < self.walls_chance and self.state["map"].count(WALL) >= self.walls_max:
                 for _ in range(walls_generated):
-                    swall_position = random.randint(0, self.map_product-1)
+                    wall_position = random.randint(0, self.map_product-1)
                     if self.state["map"][wall_position] == WALL:
                         self.state["map"][wall_position] = EMPTY_CELL
+                        self.state["walls_pos"].remove(wall_position)
                         new_wall_position = random.randint(0, self.map_product-1)
                         while self.state["map"][new_wall_position] != EMPTY_CELL:
                             new_wall_position = random.randint(0, self.map_product-1)
                         self.state["map"][new_wall_position] = WALL
+                        self.state["walls_pos"].append(new_wall_position)
 
 
         terminations = self.terminations
@@ -434,13 +536,7 @@ class parallel_env(ParallelEnv):
         #    "map": self.state["map"],
         #    "agent": list(self.state["agents"][agent]) + [0] * (map_product - len(self.state["agents"][agent]))
         #} for agent in self.agents}
-        observations = {agent: 
-                        np.concatenate(
-                            (self.state["map"], 
-                            list(self.state["agents"][agent]) + [0] * (self.map_product - len(self.state["agents"][agent])))
-                        )
-            for agent in self.agents
-        }
+        observations = {agent: self.get_observation(agent) for agent in self.agents}
 
         infos = {agent: {
             "snake_size": len(self.snake_bodies[agent])

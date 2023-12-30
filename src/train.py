@@ -54,7 +54,7 @@ def train(training_goal = 100_000, n_steps = 512, batch_size = 64, num_vec_envs=
         print()
     env.close()
     
-train(training_goal=50_000_000, num_vec_envs=1, n_steps=10_000, batch_size=100)
+train(training_goal=50_000_000, num_vec_envs=1, n_steps=500, batch_size=50)
 
 
 
