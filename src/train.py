@@ -13,7 +13,7 @@ training_version = "v1_1"
 
 
 
-def train(training_goal = 100_000, n_steps = 2048, batch_size = 128, num_vec_envs=1, num_cpus=4):
+def train(training_goal = 100_000, n_steps = 512, batch_size = 64, num_vec_envs=1, num_cpus=4):
 
     training_jumps = [100_000, 1_000_000, 2_000_000, 5_000_000, 10_000_000, 20_000_000, 30_000_000, 40_000_000, 50_000_000, 60_000_000, 70_000_000, 80_000_000, 90_000_000, 100_000_000]
     trained_models = []
@@ -46,7 +46,7 @@ def train(training_goal = 100_000, n_steps = 2048, batch_size = 128, num_vec_env
             break
     env.close()
 
-    env = snake_env.create_env(render_mode="disabled", num_vec_envs=1, num_cpus=4)
+    env = snake_env.create_env(render_mode="disabled", num_vec_envs=1, num_cpus=num_cpus)
     print()
     for model_name in trained_models:
         print(f'evaluating {model_name}')

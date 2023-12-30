@@ -40,7 +40,7 @@ def create_env(render_mode="human", num_vec_envs=1, num_cpus=4):
         move_reward=-0.3, 
         food_rewards=True, 
         food_reward=2, 
-        food_rewards_length_multiplier=True, 
+        food_rewards_length_multiplier=False, 
         death_reward=-24, 
         debug_print=False)
     observations, infos = env.reset()
@@ -84,7 +84,7 @@ class parallel_env(ParallelEnv):
     metadata = {"render_modes": ["human", "disabled"], "name": "rps_v2"}
 
     def __init__(self, render_mode=None,
-                num_iters=1000,
+                num_iters=5000,
                 map_width=10,
                 map_height=10,
                 agent_count=2,
