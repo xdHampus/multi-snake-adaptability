@@ -52,6 +52,7 @@ def train(training_goal = 100_000, n_steps = 2048, batch_size = 128, num_vec_env
         print(f'evaluating {model_name}')
         eval.evaluate(model_name, env, 5000)
         print()
+    env.close()
     
 train(training_goal=10_000_000)
 
