@@ -1,17 +1,25 @@
 import snake_env
 from stable_baselines3 import PPO
 from stable_baselines3.ppo import MlpPolicy
+from stable_baselines3.common.evaluation import evaluate_policy
+from stable_baselines3.common.monitor import Monitor
 import supersuit as ss
 import time
 import numpy as np
+import random
+def evaluate(model, env, num_episodes=50, render=False, seed=None):
+    if seed is not None:
+        random.seed(seed)
 
-def evaluate(model, env, num_episodes=50, render=False):
+    # Wrap the environment in a Monitor wrapper
+
     model = PPO.load(model)
     all_episode_rewards = [] # Array of dicts with rewards for each agent
-
+    average_longest_snake = 0
     for episode in range(num_episodes):
-        obs = env.reset()
+        obs = env.reset() if seed is None else env.reset(seed=random.randint(0, 100000))
         episode_rewards = {agent: 0 for agent in range(len(obs))}
+        longest_snake = 0
 
         while True:
             actions, _states = model.predict(obs)
@@ -23,7 +31,12 @@ def evaluate(model, env, num_episodes=50, render=False):
             for agent in range(len(rewards)):
                 episode_rewards[agent] += rewards[agent]
 
-            # Render the environment
+            # Get the longest snake from snake_size in infos
+            for info in infos:
+                if 'snake_size' in info:
+                    longest_snake = max(longest_snake, info['snake_size'])
+                
+
             if render:
                 env.render()
 
@@ -33,7 +46,9 @@ def evaluate(model, env, num_episodes=50, render=False):
 
         # Store the episode rewards for later analysis
         all_episode_rewards.append(episode_rewards) 
+        average_longest_snake += longest_snake
 
+    average_longest_snake /= num_episodes
     # Analyze episode rewards
     
     # Get mean rewards for all actors across all episodes and all agents from the array of dicts 
@@ -53,13 +68,13 @@ def evaluate(model, env, num_episodes=50, render=False):
     best_agent_rewards = [np.max([episode_rewards[agent] for episode_rewards in all_episode_rewards]) for agent in range(len(obs))]
 
     # Print results
-    print("Mean Episode Rewards:", mean_rewards)
+    print("Mean Episode Rewards:", mean_rewards, "Average Longest Snake:", average_longest_snake)
     print("Best Mean:", best_rewards, "Worst Mean:", worst_rewards)
     print("Standard Deviation:", std_rewards, "Standard Error:", sem_rewards)
     print("Best Agent Reward:", best_agent_reward, "Best Agent Rewards:", best_agent_rewards)
-
-
-
+    
+    res = evaluate_policy(model, env, n_eval_episodes=num_episodes, render=render)
+    print('Evaluation results as mean reward per episode & std of reward per episode: ', res)
 
     return mean_rewards
 

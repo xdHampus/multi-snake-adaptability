@@ -13,7 +13,7 @@ training_version = "v1_1"
 
 
 
-def train(training_goal = 100_000, n_steps = 512, batch_size = 64, num_vec_envs=1, num_cpus=4):
+def train(training_goal = 100_000, n_steps = 512, batch_size = 64, num_vec_envs=1, num_cpus=4, map_width=11, map_height=11):
 
     training_jumps = [100_000, 500_000, 1_000_000, 2_000_000, 5_000_000, 10_000_000, 20_000_000, 30_000_000, 40_000_000, 50_000_000, 60_000_000, 70_000_000, 80_000_000, 90_000_000, 100_000_000]
     trained_models = []
@@ -32,7 +32,7 @@ def train(training_goal = 100_000, n_steps = 512, batch_size = 64, num_vec_envs=
     trained_so_far = 0
     for jump in training_jumps:
         if training_goal >= jump:
-            cur_model_name = f'pz_snake_{training_version}_{now_str}_{human_format(jump)}'
+            cur_model_name = f'pz_snake_{training_version}_{map_width}x{map_height}_{now_str}_{human_format(jump)}'
             print(f'training {cur_model_name}')
 
             model.learn(total_timesteps=(jump - trained_so_far))
@@ -50,11 +50,11 @@ def train(training_goal = 100_000, n_steps = 512, batch_size = 64, num_vec_envs=
     print()
     for model_name in trained_models:
         print(f'evaluating {model_name}')
-        eval.evaluate(model_name, env, 5000)
+        eval.evaluate(model_name, env, 1000)
         print()
     env.close()
     
-train(training_goal=1_000_000, num_vec_envs=1)
+train(training_goal=50_000_000, num_vec_envs=1, n_steps=10_000, batch_size=100)
 
 
 

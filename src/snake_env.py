@@ -26,11 +26,11 @@ CELL_TYPES_STR = ["EMPTY_CELL", "SNAKE_CELL", "FOOD", "WALL"]
 
 
 
-def create_env(render_mode="human", num_vec_envs=1, num_cpus=4, debug_print=False):
+def create_env(render_mode="human", num_vec_envs=1, num_cpus=4, debug_print=False, map_width=5, map_height=5, seed=None):
     env = parallel_env(
         render_mode=render_mode, 
-        map_width=11, 
-        map_height=11, 
+        map_width=map_width, 
+        map_height=map_height, 
         agent_count=2, 
         snake_start_len=2, 
         food_gen_max=1, 
@@ -39,11 +39,11 @@ def create_env(render_mode="human", num_vec_envs=1, num_cpus=4, debug_print=Fals
         move_rewards_length=False,
         move_reward=-0.3, 
         food_rewards=True, 
-        food_reward=25, 
+        food_reward=27, 
         food_rewards_length_multiplier=False, 
         death_reward=-29, 
         debug_print=debug_print)
-    observations, infos = env.reset()
+    observations, infos = env.reset(seed=seed)
     env = ss.black_death_v3(env)
     env = ss.pettingzoo_env_to_vec_env_v1(env)
     env = ss.concat_vec_envs_v1(env, num_vec_envs=num_vec_envs, num_cpus=num_cpus, base_class="stable_baselines3")
@@ -85,13 +85,13 @@ class parallel_env(ParallelEnv):
 
     def __init__(self, render_mode=None,
                 num_iters=5000,
-                map_width=10,
-                map_height=10,
+                map_width=11,
+                map_height=11,
                 agent_count=2,
                 food_chance=0.10,
                 food_gen_min=1,
                 food_gen_max=2,
-                snake_start_len=1,
+                snake_start_len=0,
                 food_total_max=15,
                 debug_print=False,
                 debug_aop=False,
@@ -104,6 +104,15 @@ class parallel_env(ParallelEnv):
                 move_rewards=False,
                 move_rewards_length=False,
                 move_reward=1,
+                walls_enabled=False,
+                walls_max=10,
+                walls_chance=0.10,
+                walls_replace=True,
+                walls_gen_min=1,
+                walls_gen_max=1,
+                kill_idler=True,
+                kill_idler_after=15,
+                kill_idler_reward=-50,
                 render_snake_body=True):
         self.num_iters = num_iters
         self.map_width = map_width
@@ -128,8 +137,15 @@ class parallel_env(ParallelEnv):
         self.move_rewards = move_rewards
         self.move_rewards_length = move_rewards_length
         self.move_reward = move_reward
-        
-
+        self.walls_enabled = walls_enabled
+        self.walls_max = walls_max
+        self.walls_chance = walls_chance
+        self.walls_replace = walls_replace
+        self.walls_gen_min = walls_gen_min
+        self.walls_gen_max = walls_gen_max
+        self.kill_idler = kill_idler
+        self.kill_idler_after = kill_idler_after
+        self.kill_idler_reward = kill_idler_reward
 
         if self.debug_aop:
             print("CALLED: parallel_env()")
@@ -259,8 +275,7 @@ class parallel_env(ParallelEnv):
                     self.snake_bodies[agent].append(new_position)
 
                 
-
-
+        self.idler = {agent: 0 for agent in self.agents}
         self.terminations = {agent: False for agent in self.agents}
         self.num_moves = 0
         self.state = {
@@ -273,10 +288,21 @@ class parallel_env(ParallelEnv):
         #    "agent":  list(self.state["agents"][agent]) + [0] * (map_product - len(self.state["agents"][agent]))
         #} for agent in self.agents}
         observations = {agent: self.map + self.map for agent in self.agents}
-        infos = {agent: {} for agent in self.agents}
+        infos = {agent: {
+            "snake_size": len(self.snake_bodies[agent])
+        } for agent in self.agents}
 
         return observations, infos
     
+    def kill_agent(self, agent, rewards, death_reward=None):
+        self.terminations[agent] = True
+        # clear map of snake body
+        for position in self.snake_bodies[agent]:
+            self.state["map"][position] = EMPTY_CELL
+        # clear snake body
+        self.snake_bodies[agent] = deque()
+        # set rewards to death reward
+        rewards[agent] = self.death_reward if death_reward is None else death_reward
 
     def step(self, actions):
         if self.debug_aop:
@@ -341,15 +367,7 @@ class parallel_env(ParallelEnv):
                         print(f'{agent} hit at {next_position} is snake')
                     else:
                         print(f'{agent} hit at {next_position} is unknown')
-                self.terminations[agent] = True
-                # clear map of snake body
-                for position in self.snake_bodies[agent]:
-                    self.state["map"][position] = EMPTY_CELL
-                # clear snake body
-                self.snake_bodies[agent] = deque()
-                # set rewards to death reward
-                rewards[agent] = self.death_reward
-
+                self.kill_agent(agent, rewards)
                 continue
 
             # check if the snake ate food
@@ -359,17 +377,26 @@ class parallel_env(ParallelEnv):
                 self.state["map"][next_position] = EMPTY_CELL
                 if self.food_rewards:
                     rewards[agent] = (len(self.snake_bodies[agent]) * self.food_reward) if self.food_rewards_length_multiplier else self.food_reward
+                # Idler reset
+                if self.kill_idler:
+                    self.idler[agent] = 0
             else:
                 tail_position = self.snake_bodies[agent].popleft()
                 self.state["map"][tail_position] = EMPTY_CELL
                 if self.move_rewards:
                     rewards[agent] = len(self.snake_bodies[agent]) if self.move_rewards_length else self.move_reward
+                # Idler add
+                if self.kill_idler:
+                    self.idler[agent] += 1
+                    if self.idler[agent] >= self.kill_idler_after:
+                        self.kill_agent(agent, rewards, self.kill_idler_reward)
+                        continue
 
             # move the snake
             self.snake_bodies[agent].append(next_position)
             self.state["map"][next_position] = SNAKE_CELL
 
-        # add food X amount of food to the map with a 10% chance if there is less than 15 food on the map
+        # add food X amount of food to the map with a Y% chance if there is less than Z food on the map
         if random.random() < self.food_chance and self.state["map"].count(FOOD) < self.food_total_max:    
             food_generated = random.randint(self.food_gen_min, self.food_gen_max)
             for _ in range(food_generated):
@@ -377,11 +404,27 @@ class parallel_env(ParallelEnv):
                 if self.state["map"][food_position] == EMPTY_CELL:
                     self.state["map"][food_position] = FOOD
         
+        # if Y% chance if there is less than Z walls on the map add a new one else find an existing wall, set it to empty and place a wall elsewhere - do this X times
+        if self.walls_enabled:
+            wall_chance = random.random()
+            if wall_chance < self.walls_chance and self.state["map"].count(WALL) < self.walls_max:
+                walls_generated = random.randint(self.walls_gen_min, self.walls_gen_max)
+                for _ in range(walls_generated):
+                    wall_position = random.randint(0, self.map_product-1)
+                    if self.state["map"][wall_position] == EMPTY_CELL:
+                        self.state["map"][wall_position] = WALL
+            elif wall_chance < self.walls_chance and self.state["map"].count(WALL) >= self.walls_max:
+                for _ in range(walls_generated):
+                    swall_position = random.randint(0, self.map_product-1)
+                    if self.state["map"][wall_position] == WALL:
+                        self.state["map"][wall_position] = EMPTY_CELL
+                        new_wall_position = random.randint(0, self.map_product-1)
+                        while self.state["map"][new_wall_position] != EMPTY_CELL:
+                            new_wall_position = random.randint(0, self.map_product-1)
+                        self.state["map"][new_wall_position] = WALL
 
 
         terminations = self.terminations
-
-
 
         self.num_moves += 1
         env_truncation = self.num_moves >= self.num_iters or all(self.terminations.values())
@@ -398,8 +441,10 @@ class parallel_env(ParallelEnv):
                         )
             for agent in self.agents
         }
-        # rewards for all agents are placed in the rewards dictionary to be returned
-        infos = {agent: {} for agent in self.agents}
+
+        infos = {agent: {
+            "snake_size": len(self.snake_bodies[agent])
+        } for agent in self.agents}
 
         # remove agents that have terminated
         for agent in self.agents:
