@@ -4,11 +4,11 @@ from stable_baselines3.ppo import MlpPolicy
 import supersuit as ss
 import time
 
-env = snake_env.create_env()
+env = snake_env.create_env(debug_print=True)
 
 
 print("loading model")
-model = PPO.load("pz_snake_v1_1_2023-12-29_22-07-16_200M")
+model = PPO.load("pz_snake_v1_1_2023-12-30_14-32-43_1M")
 
 print("running model")
 obs = env.reset()
