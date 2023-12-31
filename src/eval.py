@@ -7,6 +7,9 @@ import supersuit as ss
 import time
 import numpy as np
 import random
+import os
+
+
 def evaluate(model, env, num_episodes=50, render=False, seed=None):
     if seed is not None:
         random.seed(seed)
@@ -79,3 +82,16 @@ def evaluate(model, env, num_episodes=50, render=False, seed=None):
     return mean_rewards
 
 
+if __name__ == "__main__":
+    files = os.listdir()
+    files = [file for file in files if file.endswith('.zip')]
+    files.sort()
+
+    print("Available models:")
+    for i, file in enumerate(files):
+        print(i, file)
+        
+    model = input("Enter model number: ")
+    model = files[int(model)]
+    env =  snake_env.create_env(render_mode="disabled", num_vec_envs=1, num_cpus=os.cpu_count())
+    evaluate(model, env, num_episodes=100, render=True)

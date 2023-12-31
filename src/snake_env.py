@@ -300,6 +300,7 @@ class parallel_env(ParallelEnv):
             "food_pos": [],
             "walls_pos": [],
         }
+        self.state["last_observation"] = {agent: self.get_observation(agent) for agent in self.agents}
 
         #observations = {agent: {
         #    "map": self.state["map"],
@@ -307,7 +308,7 @@ class parallel_env(ParallelEnv):
         #} for agent in self.agents}
 
 
-        observations = {agent: self.get_observation(agent) for agent in self.agents}
+        observations = self.state["last_observation"]
         infos = {agent: {
             "snake_size": len(self.snake_bodies[agent])
         } for agent in self.agents}
@@ -345,6 +346,7 @@ class parallel_env(ParallelEnv):
         """
         if len(self.state["agents"][agent]) < 1:
             return np.zeros((16, 5), dtype=int) # TODO: Body length is NULL dno how to handle
+        
         head_pos = self.convert_point_to_xy(self.state["agents"][agent][-1])
 
         check_pos = [
@@ -447,6 +449,8 @@ class parallel_env(ParallelEnv):
 
         rewards = {agent: 0 for agent in self.agents}
         
+        observations = {agent: self.get_observation(agent) for agent in self.agents}
+        
         if self.debug_print:
             print(actions)
 
@@ -494,13 +498,14 @@ class parallel_env(ParallelEnv):
                 self.kill_agent(agent, rewards)
                 continue
 
+
             # check if the snake ate food
             if self.state["map"][next_position] == FOOD:
                 if self.debug_print:
                     print(f'{agent} ate food') 
                 self.state["map"][next_position] = EMPTY_CELL
                 if self.food_rewards:
-                    rewards[agent] = (len(self.snake_bodies[agent]) * self.food_reward) if self.food_rewards_length_multiplier else self.food_reward
+                    rewards[agent] += (len(self.snake_bodies[agent]) * self.food_reward) if self.food_rewards_length_multiplier else self.food_reward
                     self.state["food_pos"].remove(next_position)
                 # Idler reset
                 if self.kill_idler:
@@ -516,7 +521,14 @@ class parallel_env(ParallelEnv):
                     if self.idler[agent] >= self.kill_idler_after:
                         self.kill_agent(agent, rewards, self.kill_idler_reward)
                         continue
+                        
+            # Reward if it came closer to food
+            prev_min_food_distance = np.min(self.state["last_observation"][agent][:,3])
+            current_min_food_distance = np.min(observations[agent][:,3])
 
+            if current_min_food_distance < prev_min_food_distance:
+                rewards[agent] += 0.3
+                
             # move the snake
             self.snake_bodies[agent].append(next_position)
             self.state["map"][next_position] = SNAKE_CELL
@@ -563,7 +575,6 @@ class parallel_env(ParallelEnv):
         #    "map": self.state["map"],
         #    "agent": list(self.state["agents"][agent]) + [0] * (map_product - len(self.state["agents"][agent]))
         #} for agent in self.agents}
-        observations = {agent: self.get_observation(agent) for agent in self.agents}
         if self.debug_print:
             print(f"observations: {observations}")
 
