@@ -62,7 +62,7 @@ def matrix_trainer(combinations, n_steps = 512, batch_size = 64, num_vec_envs=1,
     assert from_combo < to_combo, f'from_combo {from_combo} must be less than to_combo {to_combo}'
     print(f'all combinations: {len(combinations)}, training {from_combo} to {to_combo} for a total of {to_combo - from_combo} combinations')
 
-    training_jumps = [5_000_000, 10_000_000, 15_000_000, 20_000_000, 25_000_000]
+    training_jumps = [25_000_000]
     for i, combo in enumerate(combinations):
         if i < from_combo:
             continue
