@@ -2,13 +2,15 @@ import functools
 
 import gymnasium
 import random
-from gymnasium.spaces import Discrete, MultiDiscrete, Box, Dict
+from gymnasium.spaces import Discrete, MultiDiscrete, Box
 
 from pettingzoo import ParallelEnv
 from pettingzoo.utils import parallel_to_aec, wrappers
 from collections import deque
 import numpy as np
 import supersuit as ss
+
+from typing import List, Union, Tuple
 
 UP = 0
 DOWN = 1
@@ -81,8 +83,8 @@ def raw_env(render_mode=None):
     return env
 
 def dist_to_edge(width, height, point):
-    x = point % width
-    y = point // width
+    x = point[0]
+    y = point[1]
     return min(x, y, width - x - 1, height - y - 1) + 1
 
 class parallel_env(ParallelEnv):
@@ -177,7 +179,7 @@ class parallel_env(ParallelEnv):
         # data[2] = distance to its closest body part
         # data[3] = distance to its closest food
         # data[4] = distance to its closest wall or edge map
-        return Box(low=0, high=MAX_LIMIT_HEIGHT*MAX_LIMIT_HEIGHT, shape=(16,5), dtype=int)
+        return Box(low=0, high=MAX_LIMIT_WIDTH*MAX_LIMIT_HEIGHT, shape=(16,5), dtype=int)
         #return Box(low=0, high=self.map_product+5, shape=(self.map_product*2,), dtype=int)
 
     @functools.lru_cache(maxsize=None)
@@ -312,8 +314,28 @@ class parallel_env(ParallelEnv):
 
         return observations, infos
     
+    def out_of_bounds(self, pos: Tuple[int,int]) -> bool:
+        """If the 2d coord is out of bounds then return False. Else True"""
+        x = pos[0]
+        y = pos[1]
+
+        if (x < 0 or self.map_width <= x):
+             return True
+        if (y < 0 or self.map_height <= y):
+             return True
+
+        return False
+
     def convert_point_to_xy(self, point):
-        return point % self.map_width, point // self.map_width
+        assert  0 <= point and point < self.map_product
+
+        return (point % self.map_width), (point // self.map_width)
+    
+    def convert_xy_to_1d(self, pos: Tuple[int,int]) -> int:
+        assert 0 <= pos[0] and pos[0] < self.map_width
+        assert 0 <= pos[1] and pos[1] < self.map_height
+
+        return pos[0] + pos[1] * self.map_width
 
     def get_observation(self, agent):
         if self.debug_aop:
@@ -321,30 +343,30 @@ class parallel_env(ParallelEnv):
         """
         Returns the observation for agent
         """
-
-        head_pos = convert_point_to_xy(self.state["agents"][agent][-1])
+        if len(self.state["agents"][agent]) < 1:
+            return np.zeros((16, 5), dtype=int) # TODO: Body length is NULL dno how to handle
+        head_pos = self.convert_point_to_xy(self.state["agents"][agent][-1])
 
         check_pos = [
-            # right left 
-            head_pos - 1,
-            head_pos + 1,
-            head_pos - 2,
-            head_pos + 2,
+            (head_pos[0] + 1, head_pos[1]), # right 2
+            (head_pos[0] + 2, head_pos[1]), # right 2
+            (head_pos[0] - 1, head_pos[1]), # left 1
+            (head_pos[0] - 2, head_pos[1]), # left 1
             # up down
-            head_pos - self.map_width,
-            head_pos + self.map_width,
-            head_pos - self.map_width * 2,
-            head_pos + self.map_width * 2,
+            (head_pos[0], head_pos[1] + 1), # down 1
+            (head_pos[0], head_pos[1] + 2), # down 2
+            (head_pos[0], head_pos[1] - 1), # up 1
+            (head_pos[0], head_pos[1] - 2), # up 2
             # corners
-            head_pos - self.map_width - 1,
-            head_pos - self.map_width + 1,
-            head_pos + self.map_width - 1,
-            head_pos + self.map_width + 1,
+            (head_pos[0] + 1, head_pos[1] + 1), # bottom right
+            (head_pos[0] - 1, head_pos[1] + 1), # bottom left
+            (head_pos[0] + 1, head_pos[1] - 1), # top right
+            (head_pos[0] - 1, head_pos[1] - 1), # top left
             # corners 2
-            head_pos - 2 * self.map_width - 2,
-            head_pos - 2 * self.map_width + 2,
-            head_pos + 2 * self.map_width - 2,
-            head_pos + 2 * self.map_width + 2,
+            (head_pos[0] + 2, head_pos[1] + 2), # bottom right
+            (head_pos[0] - 2, head_pos[1] + 2), # bottom left
+            (head_pos[0] + 2, head_pos[1] - 2), # top right
+            (head_pos[0] - 2, head_pos[1] - 2), # top left
         ]
 
 
@@ -353,43 +375,48 @@ class parallel_env(ParallelEnv):
         checked_pos = np.zeros((16, 5), dtype=int)
 
 
-        cur_body = list(self.state["agents"][agent])
+        cur_body = list(map(lambda x: self.convert_point_to_xy(x), list(self.state["agents"][agent])))
+
 
         # iterate over and fill in checked_pos using pos from check_pos
-        print(check_pos)
+        if self.debug_print:
+            print(check_pos)
 
-        for pos, i in check_pos:
-            # if pos is snake set data[0] to 1
-            if pos in cur_body:
-                checked_pos[i][0] = 1
-            
-            # if pos is food set data[1] to 1
-            if self.state["map"][pos] == FOOD:
-                checked_pos[i][1] = 1
+        for i, pos in enumerate(check_pos):
+            # TODO: Should we check out of map at the beginning?
+            if not self.out_of_bounds(pos):
+                # if pos is snake set data[0] to 1
+                if pos in cur_body:
+                    checked_pos[i][0] = 1
+                
+                # if pos is food set data[1] to 1
+                xd = self.convert_xy_to_1d(pos)
+                if self.state["map"][xd] == FOOD:
+                    checked_pos[i][1] = 1
 
             # distance to its closest body part
             checked_pos[i][2] = min([self.distance(pos, body_part) for body_part in cur_body])
 
             # distance to its closest food
-            checked_pos[i][3] = min([self.distance(pos, food_part) for food_part in self.state["food_pos"]])
+            checked_pos[i][3] = min([self.distance(pos, self.convert_point_to_xy(food_part)) for food_part in self.state["food_pos"]]) if len(self.state["food_pos"]) > 0 else self.map_product
 
             # distance to its closest wall or distance to being outside map
-            if pos < 0 or pos >= self.map_product:
+            if self.out_of_bounds(pos):
                 checked_pos[i][4] = 0
             else:
                 edge_dist = dist_to_edge(self.map_width, self.map_height, pos)
-                wall_dist = min([self.distance(pos, wall_part) for wall_part in self.state["walls_pos"]])
+                wall_dist = min([self.distance(pos, self.convert_point_to_xy(wall_part)) for wall_part in self.state["walls_pos"]]) if len(self.state["walls_pos"]) > 0 else self.map_product
                 min_obstacle_dist = min(edge_dist, wall_dist)
                 # calculate dist to snake body but do not calculate for own body, only other agents - if hostiles len greater than 0 then this should be set to MAP_PRODUCT using ternary. Finally min this with min_obstacle_dist
                 hostiles = [agent for agent in self.agents if agent != agent]
-                hostiles_min_dist = min([self.distance(pos, body_part) for body_part in self.state["agents"][hostiles]]) if len(hostiles) > 0 else self.map_product
+                hostiles_min_dist = min([self.distance(pos, self.convert_point_to_xy(body_part)) for body_part in self.state["agents"][hostiles]]) if len(hostiles) > 0 else self.map_product
                 checked_pos[i][4] = min(min_obstacle_dist, hostiles_min_dist)
 
 
-        return self.state["agents"][agent]
+        return checked_pos
     
     def distance(self, pos1, pos2):
-        return abs(pos1 % self.map_width - pos2 % self.map_width) + abs(pos1 // self.map_width - pos2 // self.map_width)
+        return abs(pos1[0] - pos2[0]) + abs(pos1[1] - pos2[1])
     
     def kill_agent(self, agent, rewards, death_reward=None):
         self.terminations[agent] = True
@@ -537,6 +564,8 @@ class parallel_env(ParallelEnv):
         #    "agent": list(self.state["agents"][agent]) + [0] * (map_product - len(self.state["agents"][agent]))
         #} for agent in self.agents}
         observations = {agent: self.get_observation(agent) for agent in self.agents}
+        if self.debug_print:
+            print(f"observations: {observations}")
 
         infos = {agent: {
             "snake_size": len(self.snake_bodies[agent])
