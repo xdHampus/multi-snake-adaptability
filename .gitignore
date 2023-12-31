@@ -3,4 +3,5 @@ result
 __pycache__
 pz_snake*zip
 logs
+.logs
 models/**/

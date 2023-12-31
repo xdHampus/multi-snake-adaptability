@@ -12,6 +12,9 @@ import supersuit as ss
 
 from typing import List, Union, Tuple
 
+from stable_baselines3.common.monitor import Monitor
+from stable_baselines3.common.vec_env import DummyVecEnv
+
 UP = 0
 DOWN = 1
 LEFT = 2
@@ -323,14 +326,19 @@ class parallel_env(ParallelEnv):
             "agents": self.snake_bodies,
             "food_pos": [],
             "walls_pos": [],
-            "last_observation": {}
+            "last_observation": {},
+            "agent_metrics": {agent: {
+                "snake_size": len(self.snake_bodies[agent]),
+                "food_eaten": 0,
+                "moves": 0,
+                "total_reward": 0,
+             } for agent in self.agents},
         }
         self.state["last_observation"] = {agent: self.get_observation(agent) for agent in self.agents}
 
         observations = self.state["last_observation"]
-        infos = {agent: {
-            "snake_size": len(self.snake_bodies[agent])
-        } for agent in self.agents}
+        # Metrics for each agent to evaluate performance
+        infos = self.state["agent_metrics"]
 
         return observations, infos
     
@@ -526,6 +534,7 @@ class parallel_env(ParallelEnv):
                 if self.food_rewards:
                     rewards[agent] += (len(self.snake_bodies[agent]) * self.food_reward) if self.food_rewards_length_multiplier else self.food_reward
                     self.state["food_pos"].remove(next_position)
+                self.state["agent_metrics"][agent]["food_eaten"] += 1
                 # Idler reset
                 if self.kill_idler:
                     self.idler[agent] = 0
@@ -598,9 +607,11 @@ class parallel_env(ParallelEnv):
         if self.debug_print:
             print(f"observations: {observations}")
 
-        infos = {agent: {
-            "snake_size": len(self.snake_bodies[agent])
-        } for agent in self.agents}
+        for info in self.state["agent_metrics"].values():
+            info["moves"] += 1
+            info["total_reward"] += rewards[agent]
+            info["snake_size"] = len(self.snake_bodies[agent])
+
 
         # remove agents that have terminated
         for agent in self.agents:
@@ -612,4 +623,4 @@ class parallel_env(ParallelEnv):
 
         if self.render_mode == "human":
             self.render()
-        return observations, rewards, terminations, truncations, infos
+        return observations, rewards, terminations, truncations, self.state["agent_metrics"]
