@@ -110,7 +110,7 @@ limits = {
 combinations = game_parameter_combinations(limits)
 
 steps = 100_000
-batch = 200
+batch = 1000
 # Full
 matrix_trainer(combinations, num_vec_envs=4, num_cpus=8, n_steps=steps, batch_size=batch)
 # Part 1
