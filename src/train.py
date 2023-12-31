@@ -87,12 +87,13 @@ def matrix_trainer(combinations, n_steps = 512, batch_size = 64, num_vec_envs=1,
         for training_goal in training_jumps:
             print(f'training {training_version} to {human_format(training_goal)} steps')
             print('n_steps', n_steps, 'batch_size', batch_size)
-            model.learn(total_timesteps=(training_goal - trained_so_far))
+            cur_model_name = f'{dir_name}/pz_snake_{training_version}_{now_str}_{human_format(training_goal)}_{i}'
+
+            model.learn(total_timesteps=(training_goal - trained_so_far), tb_log_name=f'pz_snake_{training_version}_{now_str}_{human_format(training_goal)}_{i}')
             trained_so_far += training_goal
 
             dir_name = f"models/{now_str}"
             os.makedirs(f'{dir_name}', exist_ok=True)
-            cur_model_name = f'{dir_name}/pz_snake_{training_version}_{now_str}_{human_format(training_goal)}_{i}'
             print(f'saving {cur_model_name}')
             model.save(cur_model_name)
             print(f'saved {cur_model_name}')
