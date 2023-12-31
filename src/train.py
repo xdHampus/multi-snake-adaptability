@@ -57,21 +57,12 @@ def train(training_goal = 100_000, n_steps = 512, batch_size = 64, num_vec_envs=
         print()
     env.close()
 
-def matrix_trainer(training_goal = 100_000, n_steps = 512, batch_size = 64, num_vec_envs=1, num_cpus=8, from_combo=0, to_combo=99999999999):
-    limits = {
-        'map_size': [5, 11, 19],
-        'food_chance': [0.20],
-        'snake_start_len': [0],
-        'food_total_max': [2, 10, 15],
-        'walls_enabled': [False, True],
-        'walls_max': [2, 10, 15],
-        'walls_chance': [0.20]
-    }
-    combinations = game_parameter_combinations(limits)
+def matrix_trainer(combinations, n_steps = 512, batch_size = 64, num_vec_envs=1, num_cpus=8, from_combo=0, to_combo=99999999999):
     to_combo = min(to_combo, len(combinations))
     assert from_combo < to_combo, f'from_combo {from_combo} must be less than to_combo {to_combo}'
     print(f'all combinations: {len(combinations)}, training {from_combo} to {to_combo} for a total of {to_combo - from_combo} combinations')
 
+    training_jumps = [1_000_000, 2_000_000, 5_000_000, 10_000_000, 20_000_000, 30_000_000, 40_000_000, 50_000_000]
     for i, combo in enumerate(combinations):
         if i < from_combo:
             continue
@@ -90,22 +81,42 @@ def matrix_trainer(training_goal = 100_000, n_steps = 512, batch_size = 64, num_
             batch_size=batch_size,
         )        
 
-        model.learn(total_timesteps=training_goal)
-        dir_name = f"models/{now_str}"
-        os.makedirs(f'{dir_name}', exist_ok=True)
-        cur_model_name = f'{dir_name}/pz_snake_{training_version}_{now_str}_{human_format(training_goal)}_{i}'
-        model.save(cur_model_name)
+        trained_so_far = 0
+        for training_goal in training_jumps:
+            print(f'training {training_version} to {human_format(training_goal)} steps')
+            print('n_steps', n_steps, 'batch_size', batch_size)
+            model.learn(total_timesteps=(training_goal - trained_so_far))
+            trained_so_far += training_goal
+
+            dir_name = f"models/{now_str}"
+            os.makedirs(f'{dir_name}', exist_ok=True)
+            cur_model_name = f'{dir_name}/pz_snake_{training_version}_{now_str}_{human_format(training_goal)}_{i}'
+            print(f'saving {cur_model_name}')
+            model.save(cur_model_name)
+            print(f'saved {cur_model_name}')
+            print()
+
         env.close()
 
-goal = 50_000_000
-steps = 60_000
-batch = 150
+limits = {
+    'map_size': [5, 11, 19],
+    'food_chance': [0.20],
+    'snake_start_len': [0],
+    'food_total_max': [2, 10, 15],
+    'walls_enabled': [False, True],
+    'walls_max': [2, 10, 15],
+    'walls_chance': [0.20]
+}
+combinations = game_parameter_combinations(limits)
+
+steps = 40_000
+batch = 160
 # Full
-matrix_trainer(training_goal=goal, num_vec_envs=1, num_cpus=8, n_steps=steps, batch_size=batch)
+matrix_trainer(combinations, num_vec_envs=1, num_cpus=8, n_steps=steps, batch_size=batch)
 # Part 1
-#matrix_trainer(training_goal=goal, num_vec_envs=1, n_steps=steps, batch_size=batch, from_combo=0, to_combo=36//2)
+#matrix_trainer(combinations, training_goal=goal, num_vec_envs=1, n_steps=steps, batch_size=batch, from_combo=0, to_combo=len(combinations)//2)
 # Part 2
-#matrix_trainer(training_goal=goal, num_vec_envs=1, n_steps=steps, batch_size=batch, from_combo=36//2, to_combo=36)
+#matrix_trainer(combinations, training_goal=goal, num_vec_envs=1, n_steps=steps, batch_size=batch, from_combo=len(combinations)//2, to_combo=len(combinations))
 
 
 
