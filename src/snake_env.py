@@ -565,8 +565,8 @@ class parallel_env(ParallelEnv):
         # if Y% chance if there is less than Z walls on the map add a new one else find an existing wall, set it to empty and place a wall elsewhere - do this X times
         if self.walls_enabled:
             wall_chance = random.random()
+            walls_generated = random.randint(self.walls_gen_min, self.walls_gen_max)
             if wall_chance < self.walls_chance and self.state["map"].count(WALL) < self.walls_max:
-                walls_generated = random.randint(self.walls_gen_min, self.walls_gen_max)
                 for _ in range(walls_generated):
                     wall_position = random.randint(0, self.map_product-1)
                     if self.state["map"][wall_position] == EMPTY_CELL:
