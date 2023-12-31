@@ -25,9 +25,6 @@ FOOD = 2
 WALL = 3
 CELL_TYPES = [EMPTY_CELL, SNAKE_CELL, FOOD, WALL]
 CELL_TYPES_STR = ["EMPTY_CELL", "SNAKE_CELL", "FOOD", "WALL"]
-MAX_LIMIT_WIDTH = 64
-MAX_LIMIT_HEIGHT = 64
-
 
 def create_env(render_mode="human", num_vec_envs=1, num_cpus=4, debug_print=False, map_width=5, map_height=5, seed=None):
     env = parallel_env(
@@ -47,12 +44,37 @@ def create_env(render_mode="human", num_vec_envs=1, num_cpus=4, debug_print=Fals
         death_reward=-29, 
         debug_print=debug_print)
     observations, infos = env.reset(seed=seed)
+    return wrap_env(env, num_vec_envs=num_vec_envs, num_cpus=num_cpus, debug_print=debug_print, render_mode=render_mode)
+
+def create_env_from_combo(combo, render_mode="human", num_vec_envs=1, num_cpus=4, debug_print=False, seed=None):
+    env = parallel_env(
+        render_mode=render_mode, 
+        map_width=combo['map_size'], 
+        map_height=combo['map_size'], 
+        agent_count=2, 
+        snake_start_len=combo['snake_start_len'], 
+        food_gen_max=1, 
+        food_total_max=combo['food_total_max'], 
+        food_chance=combo['food_chance'],
+        walls_chance=combo['walls_chance'],
+        walls_enabled=combo['walls_enabled'],
+        walls_max=combo['walls_max'],
+        move_rewards=True, 
+        move_rewards_length=False,
+        move_reward=-0.3, 
+        food_rewards=True, 
+        food_reward=27, 
+        food_rewards_length_multiplier=False, 
+        death_reward=-29, 
+        debug_print=debug_print)
+    observations, infos = env.reset(seed=seed)
+    return wrap_env(env, num_vec_envs=num_vec_envs, num_cpus=num_cpus, debug_print=debug_print, render_mode=render_mode)
+
+def wrap_env(env, num_vec_envs=1, num_cpus=4, debug_print=False, render_mode="human"):
     env = ss.black_death_v3(env)
     env = ss.pettingzoo_env_to_vec_env_v1(env)
     env = ss.concat_vec_envs_v1(env, num_vec_envs=num_vec_envs, num_cpus=num_cpus, base_class="stable_baselines3")
     return env
-
-
 
 def env(render_mode=None):
     """
@@ -111,6 +133,8 @@ class parallel_env(ParallelEnv):
                 move_rewards=False,
                 move_rewards_length=False,
                 move_reward=1,
+                move_to_food_reward=0.3,
+                move_to_food_rewards=True,
                 walls_enabled=False,
                 walls_max=10,
                 walls_chance=0.10,
@@ -120,6 +144,8 @@ class parallel_env(ParallelEnv):
                 kill_idler=True,
                 kill_idler_after=15,
                 kill_idler_reward=-50,
+                max_limit_width=64,
+                max_limit_height=64,
                 render_snake_body=True):
         self.num_iters = num_iters
         self.map_width = map_width
@@ -153,6 +179,11 @@ class parallel_env(ParallelEnv):
         self.kill_idler = kill_idler
         self.kill_idler_after = kill_idler_after
         self.kill_idler_reward = kill_idler_reward
+        self.max_limit_width = max_limit_width
+        self.max_limit_height = max_limit_height
+        self.max_limit_product = max_limit_width * max_limit_height
+        self.move_to_food_reward = move_to_food_reward
+        self.move_to_food_rewards = move_to_food_rewards
 
         if self.debug_aop:
             print("CALLED: parallel_env()")
@@ -167,20 +198,13 @@ class parallel_env(ParallelEnv):
     def observation_space(self, agent):
         if self.debug_aop:
             print("CALLED: observation_space()")
-        #return Dict({
-        #    "map": Box(low=0, high=5, shape=(map_product,), dtype=int),
-        #  
-        #   "agent": Box(low=0, high=map_product, shape=(map_product,), dtype=int)
-        #})
-
         # food pos closest to snake head
         # data[0] = 1 if pos is snake
         # data[1] = 1 if pos is food
         # data[2] = distance to its closest body part
         # data[3] = distance to its closest food
         # data[4] = distance to its closest wall or edge map
-        return Box(low=0, high=MAX_LIMIT_WIDTH*MAX_LIMIT_HEIGHT, shape=(16,5), dtype=int)
-        #return Box(low=0, high=self.map_product+5, shape=(self.map_product*2,), dtype=int)
+        return Box(low=0, high=self.max_limit_width*self.max_limit_height, shape=(16,5), dtype=int)
 
     @functools.lru_cache(maxsize=None)
     def action_space(self, agent):
@@ -299,14 +323,9 @@ class parallel_env(ParallelEnv):
             "agents": self.snake_bodies,
             "food_pos": [],
             "walls_pos": [],
+            "last_observation": {}
         }
         self.state["last_observation"] = {agent: self.get_observation(agent) for agent in self.agents}
-
-        #observations = {agent: {
-        #    "map": self.state["map"],
-        #    "agent":  list(self.state["agents"][agent]) + [0] * (map_product - len(self.state["agents"][agent]))
-        #} for agent in self.agents}
-
 
         observations = self.state["last_observation"]
         infos = {agent: {
@@ -400,18 +419,18 @@ class parallel_env(ParallelEnv):
             checked_pos[i][2] = min([self.distance(pos, body_part) for body_part in cur_body])
 
             # distance to its closest food
-            checked_pos[i][3] = min([self.distance(pos, self.convert_point_to_xy(food_part)) for food_part in self.state["food_pos"]]) if len(self.state["food_pos"]) > 0 else self.map_product
+            checked_pos[i][3] = min([self.distance(pos, self.convert_point_to_xy(food_part)) for food_part in self.state["food_pos"]]) if len(self.state["food_pos"]) > 0 else self.max_limit_product
 
             # distance to its closest wall or distance to being outside map
             if self.out_of_bounds(pos):
                 checked_pos[i][4] = 0
             else:
                 edge_dist = dist_to_edge(self.map_width, self.map_height, pos)
-                wall_dist = min([self.distance(pos, self.convert_point_to_xy(wall_part)) for wall_part in self.state["walls_pos"]]) if len(self.state["walls_pos"]) > 0 else self.map_product
+                wall_dist = min([self.distance(pos, self.convert_point_to_xy(wall_part)) for wall_part in self.state["walls_pos"]]) if len(self.state["walls_pos"]) > 0 else self.max_limit_product
                 min_obstacle_dist = min(edge_dist, wall_dist)
                 # calculate dist to snake body but do not calculate for own body, only other agents - if hostiles len greater than 0 then this should be set to MAP_PRODUCT using ternary. Finally min this with min_obstacle_dist
                 hostiles = [agent for agent in self.agents if agent != agent]
-                hostiles_min_dist = min([self.distance(pos, self.convert_point_to_xy(body_part)) for body_part in self.state["agents"][hostiles]]) if len(hostiles) > 0 else self.map_product
+                hostiles_min_dist = min([self.distance(pos, self.convert_point_to_xy(body_part)) for body_part in self.state["agents"][hostiles]]) if len(hostiles) > 0 else self.max_limit_product
                 checked_pos[i][4] = min(min_obstacle_dist, hostiles_min_dist)
 
 
@@ -523,11 +542,12 @@ class parallel_env(ParallelEnv):
                         continue
                         
             # Reward if it came closer to food
-            prev_min_food_distance = np.min(self.state["last_observation"][agent][:,3])
-            current_min_food_distance = np.min(observations[agent][:,3])
+            if self.move_to_food_rewards:
+                prev_min_food_distance = np.min(self.state["last_observation"][agent][:,3])
+                current_min_food_distance = np.min(observations[agent][:,3])
 
-            if current_min_food_distance < prev_min_food_distance:
-                rewards[agent] += 0.3
+                if current_min_food_distance < prev_min_food_distance:
+                    rewards[agent] += self.move_to_food_reward
                 
             # move the snake
             self.snake_bodies[agent].append(next_position)

@@ -4,12 +4,14 @@ from stable_baselines3.ppo import MlpPolicy
 import supersuit as ss
 import datetime
 import eval
-from utils import human_format
+from utils import human_format, game_parameter_combinations, game_parameter_difficulty_estimator
 import os
+import math
 # get current timedate as string
 now = datetime.datetime.now()
 now_str = now.strftime("%Y-%m-%d_%H-%M-%S")
 training_version = "v1_1"
+
 
 
 def train(training_goal = 100_000, n_steps = 512, batch_size = 64, num_vec_envs=1, num_cpus=8, map_width=11, map_height=11):
@@ -54,8 +56,60 @@ def train(training_goal = 100_000, n_steps = 512, batch_size = 64, num_vec_envs=
         eval.evaluate(model_name, env, 1000)
         print()
     env.close()
-    
-train(training_goal=50_000_000, num_vec_envs=1, n_steps=100_000, batch_size=200)
+
+def matrix_trainer(training_goal = 100_000, n_steps = 512, batch_size = 64, num_vec_envs=1, num_cpus=8, from_combo=0, to_combo=99999999999):
+    limits = {
+        'map_size': [5, 11, 19],
+        'food_chance': [0.20],
+        'snake_start_len': [0],
+        'food_total_max': [2, 10, 15],
+        'walls_enabled': [False, True],
+        'walls_max': [2, 10, 15],
+        'walls_chance': [0.20]
+    }
+    combinations = game_parameter_combinations(limits)
+    to_combo = min(to_combo, len(combinations))
+    assert from_combo < to_combo, f'from_combo {from_combo} must be less than to_combo {to_combo}'
+    print(f'all combinations: {len(combinations)}, training {from_combo} to {to_combo} for a total of {to_combo - from_combo} combinations')
+
+    for i, combo in enumerate(combinations):
+        if i < from_combo:
+            continue
+        if i > to_combo:
+            break
+        print(f'combo {i} of {to_combo}, left till completion: {to_combo - i}')
+        print(f'Difficulty: {game_parameter_difficulty_estimator(combo)}, combo: {combo}')
+        print()
+        env = snake_env.create_env_from_combo(combo, render_mode="disabled", num_vec_envs=num_vec_envs, num_cpus=num_cpus)
+
+        model = PPO(
+            MlpPolicy,
+            env,    
+            verbose=3,
+            n_steps=n_steps,
+            batch_size=batch_size,
+        )        
+
+        model.learn(total_timesteps=training_goal)
+        dir_name = f"models/{now_str}"
+        os.makedirs(f'{dir_name}', exist_ok=True)
+        cur_model_name = f'{dir_name}/pz_snake_{training_version}_{now_str}_{human_format(training_goal)}_{i}'
+        model.save(cur_model_name)
+        env.close()
+
+goal = 50_000_000
+steps = 60_000
+batch = 150
+# Full
+matrix_trainer(training_goal=goal, num_vec_envs=1, num_cpus=8, n_steps=steps, batch_size=batch)
+# Part 1
+#matrix_trainer(training_goal=goal, num_vec_envs=1, n_steps=steps, batch_size=batch, from_combo=0, to_combo=36//2)
+# Part 2
+#matrix_trainer(training_goal=goal, num_vec_envs=1, n_steps=steps, batch_size=batch, from_combo=36//2, to_combo=36)
+
+
+
+#train(training_goal=50_000_000, num_vec_envs=1, n_steps=100_000, batch_size=200)
 
 
 
