@@ -5,3 +5,4 @@ pz_snake*zip
 logs
 .logs
 models/**/
+nohup.out
