@@ -318,7 +318,7 @@ combinations = game_parameter_combinations(limits)
 steps = 32_000
 batch = 8_000
 # Full
-matrix_trainer(combinations, num_vec_envs=8, num_cpus=8, n_steps=steps, batch_size=batch)
+#matrix_trainer(combinations, num_vec_envs=8, num_cpus=8, n_steps=steps, batch_size=batch)
 # Part 1
 #matrix_trainer(combinations, num_vec_envs=8, num_cpus=8, n_steps=steps, batch_size=batch, from_combo=0, to_combo=len(combinations)//2)
 # Part 2
