@@ -28,6 +28,7 @@
             python310Packages.matplotlib
             python310Packages.pytorch
             python310Packages.tensorflow
+            python310Packages.seaborn
             libstdcxx5
           ];
           shellHook = ''

@@ -101,7 +101,7 @@ if __name__ == "__main__":
         model_results = []
         for j, model in enumerate(model_files):
             env = create_env_from_combo(combo, render_mode="disabled", seed=seed)
-            result = evaluate(model, env, num_episodes=10, render=False)
+            result = evaluate(model, env, num_episodes=500, render=False)
             result['model'] = model.split('_')[-1]
             env.close()
             model_results.append(result)

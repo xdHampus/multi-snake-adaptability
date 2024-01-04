@@ -5,3 +5,4 @@ pettingzoo==1.24.2
 supersuit==3.9.1
 tensorboard
 tensorflow
+seaborn
