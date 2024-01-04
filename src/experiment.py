@@ -109,7 +109,6 @@ if __name__ == "__main__":
         for result in model_results:
             result['combo'] = i
         all_results.extend(model_results)
-        break
 
     df = pd.DataFrame(all_results)
     df.to_csv("results.csv")
