@@ -23,7 +23,7 @@ def evaluate(model, env, num_episodes=50, render=False):
         episode_info = {}
         episode_info_final = {}
         actions_all = []
-        
+
         while True:
             actions, _states = model.predict(obs)
             actions_all.append(actions)
@@ -49,6 +49,7 @@ def evaluate(model, env, num_episodes=50, render=False):
     
     # Get average total_reward for every dict in all_episode_rewards
     avg_total_reward = [sum([episode_info['total_reward'] for episode_info in episode_infos]) / len(episode_infos) for episode_infos in all_episode_rewards] 
+
     avg_snake_size = [sum([episode_info['snake_size'] for episode_info in episode_infos]) / len(episode_infos) for episode_infos in all_episode_rewards]
     avg_food_eaten = [sum([episode_info['food_eaten'] for episode_info in episode_infos]) / len(episode_infos) for episode_infos in all_episode_rewards]
     avg_moves = [sum([episode_info['moves'] for episode_info in episode_infos]) / len(episode_infos) for episode_infos in all_episode_rewards]
@@ -109,9 +110,19 @@ if __name__ == "__main__":
         for result in model_results:
             result['combo'] = i
         all_results.extend(model_results)
+        break
+
+    df = pd.DataFrame(all_results)
+
+    df['avg_total_reward'] = df['avg_total_reward'].apply(lambda x: np.mean(x))
+    df['avg_snake_size'] = df['avg_snake_size'].apply(lambda x: np.mean(x))
+    df['avg_food_eaten'] = df['avg_food_eaten'].apply(lambda x: np.mean(x))
+    df['avg_moves'] = df['avg_moves'].apply(lambda x: np.mean(x))
+    df['max_snake_size'] = df['max_snake_size'].apply(lambda x: np.max(x))
+    df['max_food_eaten'] = df['max_food_eaten'].apply(lambda x: np.max(x))
+    df['max_moves'] = df['max_moves'].apply(lambda x: np.max(x))
+    df['max_total_reward'] = df['max_total_reward'].apply(lambda x: np.max(x))
     
     # Save results as CSV
-    df = pd.DataFrame(all_results)
     df.to_csv("results.csv")
-        
         
