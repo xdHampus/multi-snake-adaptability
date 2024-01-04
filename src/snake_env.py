@@ -613,16 +613,16 @@ class parallel_env(ParallelEnv):
         if self.debug_print:
             print(f"observations: {observations}")
 
-        for agent in self.agents:
-            self.state["agent_metrics"][agent]["moves"] += 1
-            self.state["agent_metrics"][agent]["total_reward"] += rewards[agent]
-            self.state["agent_metrics"][agent]["snake_size"] = len(self.snake_bodies[agent])
-
 
         # remove agents that have terminated
         for agent in self.agents:
             if self.terminations[agent]:
                 self.agents.remove(agent)
+
+        for agent in self.agents:
+            self.state["agent_metrics"][agent]["moves"] += 1
+            self.state["agent_metrics"][agent]["total_reward"] += rewards[agent]
+            self.state["agent_metrics"][agent]["snake_size"] = len(self.snake_bodies[agent])
 
         if env_truncation:
             self.agents = []
