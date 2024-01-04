@@ -1,7 +1,6 @@
 result
 .venv
 __pycache__
-pz_snake*zip
 logs
 .logs
 nohup.out
