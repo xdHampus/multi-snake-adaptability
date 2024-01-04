@@ -24,33 +24,37 @@ data['model'] = data['model'].map(combo_mapping)
 
 # Replace the combo column with the id column
 
-# Create a correlation matrix
-correlation_matrix = data.pivot_table(index='model', columns='combo', values='avg_total_reward', aggfunc='mean')
+# Column keys
+column_keys = {
+    'avg_total_reward': 'Average Total Reward',
+    'avg_snake_size': 'Average Snake Size',
+    'avg_food_eaten': 'Average Food Eaten',
+    'avg_moves': 'Average Moves',
+    'max_snake_size': 'Max Snake Size',
+    'max_food_eaten': 'Max Food Eaten',
+    'max_moves': 'Max Moves',
+    'max_total_reward': 'Max Total Reward'
+}
 
-#print(correlation_matrix)
+for key, value in column_keys.items():
+    correlation_matrix = data.pivot_table(index='model', columns='combo', values=key, aggfunc='mean')
 
-# Visualize it instead as a heatmap, disable display of the matrix values in a gray scale format acceptable for an IEEE publication going between 4 distinct colors. 
-# Make it as a grid with cells separate so values are easier to see
-# Put lines between every 5th cells
-fig, ax = plt.subplots(figsize = (36, 36))
-al = list(map(lambda x: str(x), range(1, 37)))
-sns.heatmap(correlation_matrix, ax=ax, annot=False, cmap="YlGnBu", linewidths=0.5, xticklabels=al, yticklabels=al)
-b, t = plt.ylim()
-for i in range(0, 36):
-    if i % 4 == 0:
-        ax.hlines(y = i, xmin = b, xmax = t, colors = 'blue', linewidths=0.5)
-        ax.vlines(x = i, ymin = b, ymax = t, colors = 'blue', linewidths=0.5)
-plt.title('Correlation Matrix')
-plt.xlabel('Combo')
-plt.ylabel('Model')
-plt.show()
+    fig, ax = plt.subplots(figsize = (36, 36))
+    al = list(map(lambda x: str(x), range(1, 37)))
+    sns.heatmap(correlation_matrix, ax=ax, annot=False, cmap="YlGnBu", linewidths=0.5, xticklabels=al, yticklabels=al, cbar_kws={'label': value})
+    b, t = plt.ylim()
+    for i in range(0, 36):
+        if i % 4 == 0:
+            ax.hlines(y = i, xmin = b, xmax = t, colors = 'blue', linewidths=0.5)
+            ax.vlines(x = i, ymin = b, ymax = t, colors = 'blue', linewidths=0.5)
+    plt.title(f'{value} Correlation Matrix')
+    plt.xlabel('Game Parameter Combination')
+    plt.ylabel('Model')
+
+    fig.set_size_inches(12, 10)
+    fig.savefig(f'experiment/{key}.png', dpi=300, bbox_inches='tight')
 
 
-# Create a plot to visualize max values for each model in different combos
-# This is the data. Come up with data visualisations for this in the context of me report. The combo is the id of the game environment and model 
-# avg_total_reward,avg_snake_size,avg_food_eaten,avg_moves,max_snake_size,max_food_eaten,max_moves,max_total_reward,model,combo
-# -11.3434,0.643,0.025,10.3855,3,2,28,54.3,0,0
-# Start now.
 
 
 
