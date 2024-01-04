@@ -332,6 +332,8 @@ class parallel_env(ParallelEnv):
                 "food_eaten": 0,
                 "moves": 0,
                 "total_reward": 0,
+                "agent_id": agent,
+                "actions": []
              } for agent in self.agents},
         }
         self.state["last_observation"] = {agent: self.get_observation(agent) for agent in self.agents}
@@ -488,8 +490,11 @@ class parallel_env(ParallelEnv):
             # get the current head position
             head_position = self.state["agents"][agent][-1]
 
-            # get the next position based on the action, however if the action causes the snake to go into the borders then terminate the snake
+            # add action to agent metrics
+            self.state["agent_metrics"][agent]["actions"].append(actions[agent])
 
+            # get the next position based on the action, however if the action causes the snake to go into the borders then terminate the snake
+            
             next_position = None
             agent_action = actions[agent]
             if agent_action == UP and head_position >= self.map_width:
@@ -534,7 +539,8 @@ class parallel_env(ParallelEnv):
                 if self.food_rewards:
                     rewards[agent] += (len(self.snake_bodies[agent]) * self.food_reward) if self.food_rewards_length_multiplier else self.food_reward
                     self.state["food_pos"].remove(next_position)
-                self.state["agent_metrics"][agent]["food_eaten"] += 1
+                #self.state["agent_metrics"][agent]["food_eaten"] += 1
+                self.state["agent_metrics"][agent]["food_eaten"] = self.state["agent_metrics"][agent]["food_eaten"] + 1
                 # Idler reset
                 if self.kill_idler:
                     self.idler[agent] = 0
@@ -607,10 +613,10 @@ class parallel_env(ParallelEnv):
         if self.debug_print:
             print(f"observations: {observations}")
 
-        for info in self.state["agent_metrics"].values():
-            info["moves"] += 1
-            info["total_reward"] += rewards[agent]
-            info["snake_size"] = len(self.snake_bodies[agent])
+        for agent in self.agents:
+            self.state["agent_metrics"][agent]["moves"] += 1
+            self.state["agent_metrics"][agent]["total_reward"] += rewards[agent]
+            self.state["agent_metrics"][agent]["snake_size"] = len(self.snake_bodies[agent])
 
 
         # remove agents that have terminated

@@ -8,13 +8,16 @@ from utils import human_format, game_parameter_combinations, game_parameter_diff
 import os
 import math
 import numpy as np
-# get current timedate as string
-now = datetime.datetime.now()
-now_str = now.strftime("%Y-%m-%d_%H-%M-%S")
-training_version = "v1_1"
 from stable_baselines3 import SAC
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.logger import TensorBoardOutputFormat
+
+
+
+now = datetime.datetime.now()
+now_str = now.strftime("%Y-%m-%d_%H-%M-%S")
+training_version = "v1_1"
+
 
 
 class SummaryWriterCallback(BaseCallback):
@@ -304,51 +307,20 @@ def matrix_trainer(combinations, n_steps = 512, batch_size = 64, num_vec_envs=1,
 
         env.close()
 
-limits = {
-    'map_size': [5, 11, 19],
-    'food_chance': [0.20],
-    'snake_start_len': [0],
-    'food_total_max': [2, 10, 15],
-    'walls_enabled': [False, True],
-    'walls_max': [2, 10, 15],
-    'walls_chance': [0.20]
-}
-combinations = game_parameter_combinations(limits)
-
-steps = 32_000
-batch = 8_000
-
-# Models trained so far  [0 - 11] [18 - 21]
-matrix_trainer(combinations, num_vec_envs=8, num_cpus=8, n_steps=steps, batch_size=batch, from_combo=32, to_combo=len(combinations))
-# Full
-#matrix_trainer(combinations, num_vec_envs=8, num_cpus=8, n_steps=steps, batch_size=batch)
-# Part 1
-#matrix_trainer(combinations, num_vec_envs=8, num_cpus=8, n_steps=steps, batch_size=batch, from_combo=0, to_combo=len(combinations)//2)
-# Part 2
-#matrix_trainer(combinations, num_vec_envs=8, num_cpus=8, n_steps=steps, batch_size=batch, from_combo=len(combinations)//2, to_combo=len(combinations))
+def training_limits():
+    return {
+        'map_size': [5, 11, 19],
+        'food_chance': [0.20],
+        'snake_start_len': [0],
+        'food_total_max': [2, 10, 15],
+        'walls_enabled': [False, True],
+        'walls_max': [2, 10, 15],
+        'walls_chance': [0.20]
+    }
 
 
-
-#train(training_goal=50_000_000, num_vec_envs=1, n_steps=100_000, batch_size=200)
-
-
-
-#model = PPO(
-#    "MlpPolicy",  # Use MlpPolicy for simplicity, you can change it based on your requirements
-#    env,
-#    verbose=3,
-#    learning_rate=0.00025,  # Adjust based on your problem
-#    n_steps=2048,  # Adjust based on your problem
-#    batch_size=64,  # Adjust based on your problem
-#    n_epochs=10,  # Adjust based on your problem
-#    gamma=0.99,  # Adjust based on your problem
-#    gae_lambda=0.95,  # Adjust based on your problem
-#    clip_range=0.2,  # Adjust based on your problem
-#    clip_range_vf=1.0,  # Adjust based on your problem
-#    ent_coef=0.0,  # Adjust based on your problem
-#    vf_coef=0.5,  # Adjust based on your problem
-#    max_grad_norm=0.5,  # Adjust based on your problem
-#    tensorboard_log="./logs",  # Adjust based on your preferences
-#    create_eval_env=True,  # Adjust based on your preferences
-#    policy_kwargs=dict(net_arch=[64, 64]),  # Adjust based on your problem
-#)
+if __name__ == "__main__":
+    combinations = game_parameter_combinations(training_limits())
+    steps = 32_000
+    batch = 8_000
+    matrix_trainer(combinations, num_vec_envs=8, num_cpus=8, n_steps=steps, batch_size=batch, from_combo=0, to_combo=len(combinations))
